@@ -364,8 +364,7 @@ function Sidebar({ user, onLogout, currentPage, onNavigate, pageConfig }) {
 }
 
 function PageContent({ pageKey, appData, pageConfig, onAdd, onEdit, onDelete, onAiAnalysis, chatbotProps }) {
-    // Regex to keep only digits and the minus sign for parsing
-    const parseCurrency = (value) => typeof value !== 'string' ? 0 : parseFloat(value.replace(/[^\d-]/g, '')) || 0;
+    const parseCurrency = (value) => typeof value !== 'string' ? 0 : parseFloat(value.replace(/[^ --]/g, '')) || 0;
 
     if (pageKey === 'dashboard') {
         const today = new Date();
@@ -375,31 +374,55 @@ function PageContent({ pageKey, appData, pageConfig, onAdd, onEdit, onDelete, on
         const appointmentCountToday = (appData.lichhen || []).filter(h => h['Thời gian']?.startsWith(todayString)).length;
         const medicineCount = appData.khothuoc?.length || 0;
         
+        const thuChiData = appData.thuchi || [];
+
         // Calculate total revenue from all "thu" transactions
-        const totalRevenue = (appData.thuchi || [])
+        const totalRevenue = thuChiData
             .filter(t => t['Loại giao dịch']?.toLowerCase().includes('thu'))
             .reduce((sum, t) => sum + parseCurrency(t['Số tiền (VND)'] || '0'), 0);
 
-        // Prepare data for the chart
-        const hasThuChiData = appData.thuchi && appData.thuchi.length > 0;
+        const hasThuChiData = thuChiData.length > 0;
+
+        // Aggregate transaction values per day for the chart
+        const dailyData = {};
+        thuChiData.forEach(t => {
+            const date = t.Ngày;
+            if (!date) return;
+            if (!dailyData[date]) {
+                dailyData[date] = { thu: 0, chi: 0 };
+            }
+            const amount = parseCurrency(t['Số tiền (VND)'] || '0');
+            if (t['Loại giao dịch']?.toLowerCase().includes('thu')) {
+                dailyData[date].thu += amount;
+            } else if (t['Loại giao dịch']?.toLowerCase().includes('chi')) {
+                dailyData[date].chi += amount;
+            }
+        });
+
+        const sortedDates = Object.keys(dailyData).sort((a, b) => {
+            const [dayA, monthA, yearA] = a.split('/');
+            const [dayB, monthB, yearB] = b.split('/');
+            return new Date(`${yearA}-${monthA}-${dayA}`) - new Date(`${yearB}-${monthB}-${dayB}`);
+        });
+
         const chartData = {
-            labels: hasThuChiData ? (appData.thuchi || []).map(t => t.Ngày).reverse() : ['Không có dữ liệu'],
+            labels: hasThuChiData ? sortedDates : ['Không có dữ liệu'],
             datasets: [
-                { 
-                    label: 'Thu', 
-                    data: hasThuChiData ? (appData.thuchi || []).map(t => t['Loại giao dịch']?.toLowerCase().includes('thu') ? parseCurrency(t['Số tiền (VND)']) : 0).reverse() : [], 
-                    borderColor: 'rgb(75, 192, 192)', 
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)', 
-                    tension: 0.1, 
-                    fill: true 
+                {
+                    label: 'Thu',
+                    data: hasThuChiData ? sortedDates.map(date => dailyData[date].thu) : [],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                    tension: 0.1,
+                    fill: true
                 },
-                { 
-                    label: 'Chi', 
-                    data: hasThuChiData ? (appData.thuchi || []).map(t => t['Loại giao dịch']?.toLowerCase().includes('chi') ? Math.abs(parseCurrency(t['Số tiền (VND)'])) : 0).reverse() : [], 
-                    borderColor: 'rgb(255, 99, 132)', 
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)', 
-                    tension: 0.1, 
-                    fill: true 
+                {
+                    label: 'Chi',
+                    data: hasThuChiData ? sortedDates.map(date => dailyData[date].chi) : [],
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    tension: 0.1,
+                    fill: true
                 }
             ]
         };
@@ -469,7 +492,7 @@ function CrudModal({ config, onClose, onSave }) {
     const [formData, setFormData] = useState(config.data || {});
     const [isSaving, setIsSaving] = useState(false);
 
-    const sanitizeKey = (str) => !str ? '' : str.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/[^a-z0-9_]/g, "_").replace(/_{2,}/g, "_").replace(/^_+|_+$/g, '');
+    const sanitizeKey = (str) => !str ? '' : str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/[^a-z0-9_]/g, "_").replace(/_{2,}/g, "_").replace(/^_+|_+$/g, '');
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -539,9 +562,9 @@ function Chatbot({ conversations, currentThreadId, chatInput, uploadedImage, isC
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (e) => {
-            setUploadedImage({ 
-                base64: e.target.result.split(',')[1], 
-                preview: e.target.result 
+            setUploadedImage({
+                base64: e.target.result.split(',')[1],
+                preview: e.target.result
             });
         };
         reader.readAsDataURL(file);
