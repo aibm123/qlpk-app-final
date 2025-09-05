@@ -364,7 +364,8 @@ function Sidebar({ user, onLogout, currentPage, onNavigate, pageConfig }) {
 }
 
 function PageContent({ pageKey, appData, pageConfig, onAdd, onEdit, onDelete, onAiAnalysis, chatbotProps }) {
-    const parseCurrency = (value) => typeof value !== 'string' ? 0 : parseFloat(value.replace(/[^؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿$,.-0-9]/g, '')) || 0;
+    // Regex to keep only digits and the minus sign for parsing
+    const parseCurrency = (value) => typeof value !== 'string' ? 0 : parseFloat(value.replace(/[^\d-]/g, '')) || 0;
 
     if (pageKey === 'dashboard') {
         const today = new Date();
@@ -373,13 +374,33 @@ function PageContent({ pageKey, appData, pageConfig, onAdd, onEdit, onDelete, on
         const patientCount = appData.benhnhan?.length || 0;
         const appointmentCountToday = (appData.lichhen || []).filter(h => h['Thời gian']?.startsWith(todayString)).length;
         const medicineCount = appData.khothuoc?.length || 0;
-        const totalRevenue = (appData.thuchi || []).filter(t => t['Loại giao dịch']?.includes('thu')).reduce((s, t) => s + parseCurrency(t['Số tiền (VND)'] || '0'), 0);
+        
+        // Calculate total revenue from all "thu" transactions
+        const totalRevenue = (appData.thuchi || [])
+            .filter(t => t['Loại giao dịch']?.toLowerCase().includes('thu'))
+            .reduce((sum, t) => sum + parseCurrency(t['Số tiền (VND)'] || '0'), 0);
 
+        // Prepare data for the chart
+        const hasThuChiData = appData.thuchi && appData.thuchi.length > 0;
         const chartData = {
-            labels: (appData.thuchi || []).map(t => t.Ngày).reverse(),
+            labels: hasThuChiData ? (appData.thuchi || []).map(t => t.Ngày).reverse() : ['Không có dữ liệu'],
             datasets: [
-                { label: 'Thu', data: (appData.thuchi || []).map(t => t['Loại giao dịch']?.includes('thu') ? parseCurrency(t['Số tiền (VND)']) : 0).reverse(), borderColor: 'rgb(75, 192, 192)', backgroundColor: 'rgba(75, 192, 192, 0.2)', tension: 0.1, fill: true },
-                { label: 'Chi', data: (appData.thuchi || []).map(t => t['Loại giao dịch']?.includes('chi') ? Math.abs(parseCurrency(t['Số tiền (VND)'])) : 0).reverse(), borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.2)', tension: 0.1, fill: true }
+                { 
+                    label: 'Thu', 
+                    data: hasThuChiData ? (appData.thuchi || []).map(t => t['Loại giao dịch']?.toLowerCase().includes('thu') ? parseCurrency(t['Số tiền (VND)']) : 0).reverse() : [], 
+                    borderColor: 'rgb(75, 192, 192)', 
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)', 
+                    tension: 0.1, 
+                    fill: true 
+                },
+                { 
+                    label: 'Chi', 
+                    data: hasThuChiData ? (appData.thuchi || []).map(t => t['Loại giao dịch']?.toLowerCase().includes('chi') ? Math.abs(parseCurrency(t['Số tiền (VND)'])) : 0).reverse() : [], 
+                    borderColor: 'rgb(255, 99, 132)', 
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)', 
+                    tension: 0.1, 
+                    fill: true 
+                }
             ]
         };
 
@@ -392,7 +413,14 @@ function PageContent({ pageKey, appData, pageConfig, onAdd, onEdit, onDelete, on
                     <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between"><div><p className="text-sm text-gray-500">Loại Thuốc</p><p className="text-2xl font-bold">{medicineCount}</p></div><FontAwesomeIcon icon={faPills} size="3x" className="text-yellow-500"/></div>
                     <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between"><div><p className="text-sm text-gray-500">Tổng Doanh Thu</p><p className="text-2xl font-bold">{new Intl.NumberFormat('vi-VN').format(totalRevenue)} đ</p></div><FontAwesomeIcon icon={faWallet} size="3x" className="text-purple-500"/></div>
                 </div>
-                <div className="mt-8 bg-white p-6 rounded-lg shadow-md"><h2 className="text-xl font-bold mb-4">Phân tích Thu-Chi</h2><Line data={chartData} /></div>
+                <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
+                    <h2 className="text-xl font-bold mb-4">Phân tích Thu-Chi</h2>
+                    {hasThuChiData ? (
+                        <Line data={chartData} />
+                    ) : (
+                        <div className="text-center text-gray-500 py-8">Không có dữ liệu thu chi để vẽ biểu đồ.</div>
+                    )}
+                </div>
             </>
         );
     }
