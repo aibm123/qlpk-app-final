@@ -30,7 +30,6 @@ ChartJS.register(
 // Define pageConfig once, in the correct order, outside the component
 const pageConfig = {
     chatbot: { title: 'Chatbot AI', icon: faRobot },
-    dashboard: { title: 'Tổng quan', icon: faTachometerAlt },
     benhnhan: { title: 'Bệnh nhân', icon: faUsers, columns: [{h:'Họ và tên',k:'Họ và tên'},{h:'Năm sinh',k:'Năm sinh'},{h:'Giới tính',k:'Giới tính'},{h:'SĐT',k:'Số điện thoại'},{h:'Địa chỉ',k:'Địa chỉ'}] },
     lichhen: { title: 'Lịch hẹn', icon: faCalendarAlt, columns: [{h:'Thời gian',k:'Thời gian'},{h:'Bệnh nhân',k:'Bệnh nhân'},{h:'Lý do khám',k:'Lý do khám'}] },
     khothuoc: { title: 'Kho thuốc', icon: faPills, columns: [{h:'Tên thuốc',k:'Tên thuốc'},{h:'Số lượng',k:'Số lượng'},{h:'Đơn vị',k:'Đơn vị'},{h:'NCC',k:'Nhà cung cấp'},{h:'Công dụng',k:'Công dụng'}] },
@@ -364,90 +363,6 @@ function Sidebar({ user, onLogout, currentPage, onNavigate, pageConfig }) {
 }
 
 function PageContent({ pageKey, appData, pageConfig, onAdd, onEdit, onDelete, onAiAnalysis, chatbotProps }) {
-    const parseCurrency = (value) => typeof value !== 'string' ? 0 : parseFloat(value.replace(/[^ --]/g, '')) || 0;
-
-    if (pageKey === 'dashboard') {
-        const today = new Date();
-        const todayString = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
-        
-        const patientCount = appData.benhnhan?.length || 0;
-        const appointmentCountToday = (appData.lichhen || []).filter(h => h['Thời gian']?.startsWith(todayString)).length;
-        const medicineCount = appData.khothuoc?.length || 0;
-        
-        const thuChiData = appData.thuchi || [];
-
-        // Calculate total revenue from all "thu" transactions
-        const totalRevenue = thuChiData
-            .filter(t => t['Loại giao dịch']?.toLowerCase().includes('thu'))
-            .reduce((sum, t) => sum + parseCurrency(t['Số tiền (VND)'] || '0'), 0);
-
-        const hasThuChiData = thuChiData.length > 0;
-
-        // Aggregate transaction values per day for the chart
-        const dailyData = {};
-        thuChiData.forEach(t => {
-            const date = t.Ngày;
-            if (!date) return;
-            if (!dailyData[date]) {
-                dailyData[date] = { thu: 0, chi: 0 };
-            }
-            const amount = parseCurrency(t['Số tiền (VND)'] || '0');
-            if (t['Loại giao dịch']?.toLowerCase().includes('thu')) {
-                dailyData[date].thu += amount;
-            } else if (t['Loại giao dịch']?.toLowerCase().includes('chi')) {
-                dailyData[date].chi += amount;
-            }
-        });
-
-        const sortedDates = Object.keys(dailyData).sort((a, b) => {
-            const [dayA, monthA, yearA] = a.split('/');
-            const [dayB, monthB, yearB] = b.split('/');
-            return new Date(`${yearA}-${monthA}-${dayA}`) - new Date(`${yearB}-${monthB}-${dayB}`);
-        });
-
-        const chartData = {
-            labels: hasThuChiData ? sortedDates : ['Không có dữ liệu'],
-            datasets: [
-                {
-                    label: 'Thu',
-                    data: hasThuChiData ? sortedDates.map(date => dailyData[date].thu) : [],
-                    borderColor: 'rgb(75, 192, 192)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.5)',
-                    tension: 0.1,
-                    fill: true
-                },
-                {
-                    label: 'Chi',
-                    data: hasThuChiData ? sortedDates.map(date => dailyData[date].chi) : [],
-                    borderColor: 'rgb(255, 99, 132)',
-                    backgroundColor: 'rgba(255, 99, 132, 0.5)',
-                    tension: 0.1,
-                    fill: true
-                }
-            ]
-        };
-
-        return (
-            <>
-                <h1 className="text-3xl font-bold mb-6">Bảng điều khiển</h1>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between"><div><p className="text-sm text-gray-500">Tổng Bệnh Nhân</p><p className="text-2xl font-bold">{patientCount}</p></div><FontAwesomeIcon icon={faUsers} size="3x" className="text-blue-500"/></div>
-                    <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between"><div><p className="text-sm text-gray-500">Lịch Hẹn Hôm Nay</p><p className="text-2xl font-bold">{appointmentCountToday}</p></div><FontAwesomeIcon icon={faCalendarAlt} size="3x" className="text-green-500"/></div>
-                    <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between"><div><p className="text-sm text-gray-500">Loại Thuốc</p><p className="text-2xl font-bold">{medicineCount}</p></div><FontAwesomeIcon icon={faPills} size="3x" className="text-yellow-500"/></div>
-                    <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between"><div><p className="text-sm text-gray-500">Tổng Doanh Thu</p><p className="text-2xl font-bold">{new Intl.NumberFormat('vi-VN').format(totalRevenue)} đ</p></div><FontAwesomeIcon icon={faWallet} size="3x" className="text-purple-500"/></div>
-                </div>
-                <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-bold mb-4">Phân tích Thu-Chi</h2>
-                    {hasThuChiData ? (
-                        <Line data={chartData} />
-                    ) : (
-                        <div className="text-center text-gray-500 py-8">Không có dữ liệu thu chi để vẽ biểu đồ.</div>
-                    )}
-                </div>
-            </>
-        );
-    }
-
     if (pageKey === 'chatbot') {
         return <Chatbot {...chatbotProps} />;
     }
