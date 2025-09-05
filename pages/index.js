@@ -27,7 +27,6 @@ ChartJS.register(
   Legend
 );
 
-// Define pageConfig once, in the correct order, outside the component
 const pageConfig = {
     chatbot: { title: 'Chatbot AI', icon: faRobot },
     benhnhan: { title: 'Bệnh nhân', icon: faUsers, columns: [{h:'Họ và tên',k:'Họ và tên'},{h:'Năm sinh',k:'Năm sinh'},{h:'Giới tính',k:'Giới tính'},{h:'SĐT',k:'Số điện thoại'},{h:'Địa chỉ',k:'Địa chỉ'}] },
@@ -37,21 +36,16 @@ const pageConfig = {
 };
 
 export default function HomePage() {
-    // --- STATE MANAGEMENT ---
     const [currentUser, setCurrentUser] = useState(null);
     const [loginError, setLoginError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [currentPage, setCurrentPage] = useState('chatbot'); // Default page is now chatbot
+    const [currentPage, setCurrentPage] = useState('chatbot');
     const [appData, setAppData] = useState({ benhnhan: [], lichhen: [], khothuoc: [], thuchi: [] });
     const [isDataLoading, setIsDataLoading] = useState(true);
-
-    // --- MODAL STATE ---
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalConfig, setModalConfig] = useState({ title: '', pageKey: '', action: '', data: null });
     const [isAiModalOpen, setIsAiModalOpen] = useState(false);
     const [aiAnalysisResult, setAiAnalysisResult] = useState('');
-
-    // --- CHATBOT STATE ---
     const [conversations, setConversations] = useState({});
     const [currentThreadId, setCurrentThreadId] = useState(null);
     const [chatInput, setChatInput] = useState('');
@@ -59,7 +53,6 @@ export default function HomePage() {
     const [isChatSending, setIsChatSending] = useState(false);
     const chatBoxRef = useRef(null);
 
-    // --- LOGIN PERSISTENCE ---
     useEffect(() => {
         try {
             const savedUser = localStorage.getItem('qlpk-currentUser');
@@ -79,7 +72,6 @@ export default function HomePage() {
         }
     }, [currentUser]);
 
-    // --- API CALLS (to our proxy) ---
     async function callApi(task, data = {}) {
         try {
             const response = await fetch('/api/gemini', {
@@ -99,15 +91,12 @@ export default function HomePage() {
         }
     }
 
-    // --- AUTHENTICATION ---
     const handleLogin = async (e) => {
         e.preventDefault();
         setLoginError('');
         setIsLoading(true);
         const [username, password] = [e.target.username.value.trim(), e.target.password.value.trim()];
-        
         const response = await callApi('signin', { name: username, pass: password });
-
         if (response && Array.isArray(response) && response.length > 0) {
             const user = response[0];
             setCurrentUser(user);
@@ -122,10 +111,9 @@ export default function HomePage() {
         setCurrentUser(null);
         localStorage.removeItem('qlpk-currentUser');
         setAppData({ benhnhan: [], lichhen: [], khothuoc: [], thuchi: [] });
-        setCurrentPage('chatbot'); // Reset to chatbot on logout
+        setCurrentPage('chatbot');
     };
 
-    // --- DATA LOADING ---
     const loadAllData = async () => {
         setIsDataLoading(true);
         const rawData = await callApi('getdata');
@@ -140,7 +128,6 @@ export default function HomePage() {
         setIsDataLoading(false);
     };
 
-    // --- RENDER LOGIC ---
     if (!currentUser) {
         return <LoginPage onLogin={handleLogin} error={loginError} isLoading={isLoading} />;
     }
@@ -155,13 +142,7 @@ export default function HomePage() {
                 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
             </Head>
             <div className="h-screen md:flex">
-                <Sidebar 
-                    user={currentUser} 
-                    onLogout={handleLogout} 
-                    currentPage={currentPage} 
-                    onNavigate={setCurrentPage} 
-                    pageConfig={pageConfig} 
-                />
+                <Sidebar user={currentUser} onLogout={handleLogout} currentPage={currentPage} onNavigate={setCurrentPage} pageConfig={pageConfig} />
                 <main id="main-content" className="flex-1 p-6 lg:p-8 overflow-y-auto bg-gray-100">
                     {isDataLoading 
                         ? <div className="flex justify-center items-center h-full"><FontAwesomeIcon icon={faSpinner} spin size="2x" /><p className="ml-4 text-gray-600">Đang tải dữ liệu...</p></div>
@@ -186,7 +167,6 @@ export default function HomePage() {
         </>
     );
 
-    // --- CRUD & AI HANDLERS ---
     function handleAdd(pageKey) {
         setModalConfig({ title: `Thêm mới ${pageConfig[pageKey].title}`, pageKey, action: 'add', data: {} });
         setIsModalOpen(true);
@@ -216,13 +196,10 @@ export default function HomePage() {
         delete dataForPrompt.pageKey;
         delete dataForPrompt.action;
         delete dataForPrompt.row_number;
-        
         const dataString = Object.entries(dataForPrompt).map(([key, value]) => `${key}: "${value}"`).join(', ');
-
         let prompt = '';
         if (action === 'add') prompt = `Thêm vào bảng ${pageKey} một mục mới với dữ liệu sau: ${dataString}.`;
         else if (action === 'edit') prompt = `Cập nhật mục có row_number là ${row_number} trong bảng ${pageKey} với dữ liệu mới: ${dataString}.`;
-
         if (prompt) {
             const response = await callApi('CRUD', { prompt });
             if (response && Array.isArray(response) && response[0]?.output) {
@@ -241,13 +218,11 @@ export default function HomePage() {
         }
         setAiAnalysisResult('');
         setIsAiModalOpen(true);
-
         const prompt = `Phân tích dữ liệu sau đây từ bảng ${pageConfig[pageKey].title} và đưa ra nhận xét, tóm tắt các điểm chính:\n\n${JSON.stringify(dataToAnalyze, null, 2)}`;
         const result = await callApi('analyze', { prompt });
         setAiAnalysisResult(result?.text || 'Phân tích thất bại hoặc không có nội dung trả về.');
     }
 
-    // --- CHATBOT HANDLERS ---
     useEffect(() => {
         if (chatBoxRef.current) {
             chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
@@ -262,24 +237,17 @@ export default function HomePage() {
 
     async function sendChatMessage() {
         if ((!chatInput.trim() && !uploadedImage.base64) || isChatSending) return;
-        
         let tempThreadId = currentThreadId;
         if (!tempThreadId) {
             tempThreadId = `thread_${Date.now()}`;
             setConversations(prev => ({ ...prev, [tempThreadId]: [] }));
             setCurrentThreadId(tempThreadId);
         }
-
         const userPrompt = chatInput.trim() || (uploadedImage.base64 ? "Phân tích hình ảnh này." : "");
         const newUserMessage = { role: 'user', parts: [{ text: userPrompt }] };
-
-        setConversations(prev => ({
-            ...prev,
-            [tempThreadId]: [...prev[tempThreadId], newUserMessage]
-        }));
+        setConversations(prev => ({ ...prev, [tempThreadId]: [...prev[tempThreadId], newUserMessage] }));
         setChatInput('');
         setIsChatSending(true);
-
         let responseText = '';
         if (uploadedImage.base64) {
             const result = await callApi('analyze', { prompt: userPrompt, base64Data: uploadedImage.base64 });
@@ -289,17 +257,11 @@ export default function HomePage() {
             const response = await callApi('chatbot', { prompt: userPrompt, threadid: tempThreadId });
             responseText = response && Array.isArray(response) && response[0]?.output ? response[0].output : "Lỗi: Không nhận được phản hồi.";
         }
-
         const newModelMessage = { role: 'model', parts: [{ text: responseText }] };
-        setConversations(prev => ({
-            ...prev,
-            [tempThreadId]: [...prev[tempThreadId], newModelMessage]
-        }));
+        setConversations(prev => ({ ...prev, [tempThreadId]: [...prev[tempThreadId], newModelMessage] }));
         setIsChatSending(false);
     }
 }
-
-// --- SUB-COMPONENTS ---
 
 function LoginPage({ onLogin, error, isLoading }) {
     return (
@@ -367,40 +329,45 @@ function PageContent({ pageKey, appData, pageConfig, onAdd, onEdit, onDelete, on
         return <Chatbot {...chatbotProps} />;
     }
 
-    // Default table view
-    const { columns, title } = pageConfig[pageKey];
-    const data = appData[pageKey] || [];
+    // Fallback for other pages - render a table if columns are defined
+    if (pageConfig[pageKey] && pageConfig[pageKey].columns) {
+        const { columns, title } = pageConfig[pageKey];
+        const data = appData[pageKey] || [];
 
-    return (
-        <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="flex justify-between items-center mb-4">
-                <h1 className="text-2xl font-bold">{title}</h1>
-                <div className="flex items-center space-x-4">
-                    <button onClick={() => onAdd(pageKey)} className="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 flex items-center"><FontAwesomeIcon icon={faPlus} className="mr-2" />Thêm mới</button>
-                    <button onClick={() => onAiAnalysis(pageKey)} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"><FontAwesomeIcon icon={faBrain} className="mr-2" />Phân tích AI</button>
+        return (
+            <div className="bg-white p-6 rounded-lg shadow-md">
+                <div className="flex justify-between items-center mb-4">
+                    <h1 className="text-2xl font-bold">{title}</h1>
+                    <div className="flex items-center space-x-4">
+                        <button onClick={() => onAdd(pageKey)} className="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 flex items-center"><FontAwesomeIcon icon={faPlus} className="mr-2" />Thêm mới</button>
+                        <button onClick={() => onAiAnalysis(pageKey)} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"><FontAwesomeIcon icon={faBrain} className="mr-2" />Phân tích AI</button>
+                    </div>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50"><tr>
+                            {columns.map(col => <th key={col.h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{col.h}</th>) }
+                            <th className="px-6 py-3"></th>
+                        </tr></thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {data.map(item => (
+                                <tr key={item.row_number} className="hover:bg-gray-50">
+                                    {columns.map(col => <td key={col.k} className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item[col.k] || ''}</td>) }
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button onClick={() => onEdit(pageKey, item.row_number)} className="text-indigo-600 hover:text-indigo-900">Sửa</button>
+                                        <button onClick={() => onDelete(pageKey, item.row_number)} className="text-red-600 hover:text-red-900 ml-4">Xóa</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-            <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50"><tr>
-                        {columns.map(col => <th key={col.h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{col.h}</th>) }
-                        <th className="px-6 py-3"></th>
-                    </tr></thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {data.map(item => (
-                            <tr key={item.row_number} className="hover:bg-gray-50">
-                                {columns.map(col => <td key={col.k} className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item[col.k] || ''}</td>) }
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <button onClick={() => onEdit(pageKey, item.row_number)} className="text-indigo-600 hover:text-indigo-900">Sửa</button>
-                                    <button onClick={() => onDelete(pageKey, item.row_number)} className="text-red-600 hover:text-red-900 ml-4">Xóa</button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
+        );
+    }
+
+    // Fallback for any pageKey that doesn't have a component
+    return <div className="text-center text-gray-500">Trang này chưa được triển khai.</div>;
 }
 
 function CrudModal({ config, onClose, onSave }) {
@@ -541,11 +508,3 @@ function Chatbot({ conversations, currentThreadId, chatInput, uploadedImage, isC
         </div>
     );
 }
-
-// A simple helper component from the original code
-const pageConfig = {
-    benhnhan: { columns: [{h:'Họ và tên',k:'Họ và tên'},{h:'Năm sinh',k:'Năm sinh'},{h:'Giới tính',k:'Giới tính'},{h:'SĐT',k:'Số điện thoại'},{h:'Địa chỉ',k:'Địa chỉ'}] },
-    lichhen: { columns: [{h:'Thời gian',k:'Thời gian'},{h:'Bệnh nhân',k:'Bệnh nhân'},{h:'Lý do khám',k:'Lý do khám'}] },
-    khothuoc: { columns: [{h:'Tên thuốc',k:'Tên thuốc'},{h:'Số lượng',k:'Số lượng'},{h:'Đơn vị',k:'Đơn vị'},{h:'NCC',k:'Nhà cung cấp'},{h:'Công dụng',k:'Công dụng'}] },
-    thuchi: { columns: [{h:'Loại Giao Dịch',k:'Loại giao dịch'},{h:'Mô tả',k:'Mô tả'},{h:'Số tiền (VND)',k:'Số tiền (VND)'},{h:'Ngày',k:'Ngày'},{h:'Đối Tượng',k:'bệnh nhân/ nhà cung cấp'}]}
-};
