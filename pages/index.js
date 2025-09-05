@@ -27,12 +27,22 @@ ChartJS.register(
   Legend
 );
 
+// Define pageConfig once, in the correct order, outside the component
+const pageConfig = {
+    chatbot: { title: 'Chatbot AI', icon: faRobot },
+    dashboard: { title: 'Tổng quan', icon: faTachometerAlt },
+    benhnhan: { title: 'Bệnh nhân', icon: faUsers, columns: [{h:'Họ và tên',k:'Họ và tên'},{h:'Năm sinh',k:'Năm sinh'},{h:'Giới tính',k:'Giới tính'},{h:'SĐT',k:'Số điện thoại'},{h:'Địa chỉ',k:'Địa chỉ'}] },
+    lichhen: { title: 'Lịch hẹn', icon: faCalendarAlt, columns: [{h:'Thời gian',k:'Thời gian'},{h:'Bệnh nhân',k:'Bệnh nhân'},{h:'Lý do khám',k:'Lý do khám'}] },
+    khothuoc: { title: 'Kho thuốc', icon: faPills, columns: [{h:'Tên thuốc',k:'Tên thuốc'},{h:'Số lượng',k:'Số lượng'},{h:'Đơn vị',k:'Đơn vị'},{h:'NCC',k:'Nhà cung cấp'},{h:'Công dụng',k:'Công dụng'}] },
+    thuchi: { title: 'Thu - Chi', icon: faWallet, columns: [{h:'Loại Giao Dịch',k:'Loại giao dịch'},{h:'Mô tả',k:'Mô tả'},{h:'Số tiền (VND)',k:'Số tiền (VND)'},{h:'Ngày',k:'Ngày'},{h:'Đối Tượng',k:'bệnh nhân/ nhà cung cấp'}] },
+};
+
 export default function HomePage() {
     // --- STATE MANAGEMENT ---
     const [currentUser, setCurrentUser] = useState(null);
     const [loginError, setLoginError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [currentPage, setCurrentPage] = useState('dashboard');
+    const [currentPage, setCurrentPage] = useState('chatbot'); // Default page is now chatbot
     const [appData, setAppData] = useState({ benhnhan: [], lichhen: [], khothuoc: [], thuchi: [] });
     const [isDataLoading, setIsDataLoading] = useState(true);
 
@@ -113,7 +123,7 @@ export default function HomePage() {
         setCurrentUser(null);
         localStorage.removeItem('qlpk-currentUser');
         setAppData({ benhnhan: [], lichhen: [], khothuoc: [], thuchi: [] });
-        setCurrentPage('dashboard');
+        setCurrentPage('chatbot'); // Reset to chatbot on logout
     };
 
     // --- DATA LOADING ---
@@ -129,16 +139,6 @@ export default function HomePage() {
             console.error("Failed to load or parse data. Response was not the expected object format:", rawData);
         }
         setIsDataLoading(false);
-    };
-
-    // --- PAGE CONFIG ---
-    const pageConfig = {
-        dashboard: { title: 'Tổng quan', icon: faTachometerAlt },
-        benhnhan: { title: 'Bệnh nhân', icon: faUsers, columns: [{h:'Họ và tên',k:'Họ và tên'},{h:'Năm sinh',k:'Năm sinh'},{h:'Giới tính',k:'Giới tính'},{h:'SĐT',k:'Số điện thoại'},{h:'Địa chỉ',k:'Địa chỉ'}] },
-        lichhen: { title: 'Lịch hẹn', icon: faCalendarAlt, columns: [{h:'Thời gian',k:'Thời gian'},{h:'Bệnh nhân',k:'Bệnh nhân'},{h:'Lý do khám',k:'Lý do khám'}] },
-        khothuoc: { title: 'Kho thuốc', icon: faPills, columns: [{h:'Tên thuốc',k:'Tên thuốc'},{h:'Số lượng',k:'Số lượng'},{h:'Đơn vị',k:'Đơn vị'},{h:'NCC',k:'Nhà cung cấp'},{h:'Công dụng',k:'Công dụng'}] },
-        thuchi: { title: 'Thu - Chi', icon: faWallet, columns: [{h:'Loại Giao Dịch',k:'Loại giao dịch'},{h:'Mô tả',k:'Mô tả'},{h:'Số tiền (VND)',k:'Số tiền (VND)'},{h:'Ngày',k:'Ngày'},{h:'Đối Tượng',k:'bệnh nhân/ nhà cung cấp'}] },
-        chatbot: { title: 'Chatbot AI', icon: faRobot }
     };
 
     // --- RENDER LOGIC ---
@@ -492,7 +492,7 @@ function CrudModal({ config, onClose, onSave }) {
     const [formData, setFormData] = useState(config.data || {});
     const [isSaving, setIsSaving] = useState(false);
 
-    const sanitizeKey = (str) => !str ? '' : str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/[^a-z0-9_]/g, "_").replace(/_{2,}/g, "_").replace(/^_+|_+$/g, '');
+    const sanitizeKey = (str) => !str ? '' : str.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/[^a-z0-9_]/g, "_").replace(/_{2,}/g, "_").replace(/^_+|_+$/g, '');
 
     const handleSubmit = async (e) => {
         e.preventDefault();
